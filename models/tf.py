@@ -539,7 +539,7 @@ def parse_model(d, ch, model, imgsz):
             CrossConv,
             BottleneckCSP,
             C3,
-            C3x,
+            C3x, ECAC3
         ]:
             c1, c2 = ch[f], args[0]
             c2 = make_divisible(c2 * gw, ch_mul) if c2 != no else c2
