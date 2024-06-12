@@ -51,7 +51,8 @@ from models.common import (
     ODConv_3rd,
     ConvNextBlock,
     ECAC3,
-    HSPP
+    HSPP,
+    CBAM
 )
 from models.experimental import MixConv2d
 from utils.autoanchor import check_anchor_order
@@ -414,7 +415,7 @@ def parse_model(d, ch):
             C3Ghost,
             nn.ConvTranspose2d,
             DWConvTranspose2d,
-            C3x, ODConv_3rd, ConvNextBlock, ECAC3, HSPP
+            C3x, ODConv_3rd, ConvNextBlock, ECAC3, HSPP, CBAM
         }:
             c1, c2 = ch[f], args[0]
             if c2 != no:  # if not output

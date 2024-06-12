@@ -19,6 +19,7 @@ import pandas as pd
 import requests
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from PIL import Image
 from torch.cuda import amp
 
@@ -1637,7 +1638,6 @@ class eca_layer(nn.Module):
 
         return x * y.expand_as(x)
 
-
 class ECAC3(nn.Module):
     # CSP Bottleneck with 3 convolutions
     # ch_in, ch_out, number, shortcut, groups, expansion
@@ -1654,7 +1654,6 @@ class ECAC3(nn.Module):
 
     def forward(self, x):
         return self.eca_layer(self.cv3(torch.cat((self.m(self.cv1(x)), self.cv2(x)), dim=1)))
-
 
 class GAM_Attention(nn.Module):
     def __init__(self, in_channels, out_channels, rate=4):
@@ -1706,3 +1705,100 @@ class HSPP(nn.Module):
         y2 = self.m2(y1)
         y3 = self.m3(y1)
         return self.cv2(torch.cat([x, y1, y2, y3], 1))
+
+class CBAM(nn.Module):
+    # ch_in, ch_out, shortcut, groups, expansion, ratio, kernel_size
+    def __init__(self, c1, c2, kernel_size=3, shortcut=True, g=1, e=0.5, ratio=16):
+        """
+        Initialize the CBAM (Convolutional Block Attention Module) .
+        Args:
+            c1 (int): Number of input channels.
+            c2 (int): Number of output channels.
+            kernel_size (int): Size of the convolutional kernel.
+            shortcut (bool): Whether to use a shortcut connection.
+            g (int): Number of groups for grouped convolutions.
+            e (float): Expansion factor for hidden channels.
+            ratio (int): Reduction ratio for the hidden channels in the channel attention block.
+        """
+        super().__init__()
+        c_ = int(c2 * e)  # hidden channels
+        self.cv1 = Conv(c1, c_, 1, 1)
+        self.cv2 = Conv(c_, c2, 3, 1, g=g)
+        self.add = shortcut and c1 == c2
+        self.channel_attention = ChannelAttention(c2, ratio)
+        self.spatial_attention = SpatialAttention(kernel_size)
+
+    def forward(self, x):
+        """
+        Forward pass of the CBAM .
+        Args:
+            x (torch.Tensor): Input tensor.
+        Returns:
+            out (torch.Tensor): Output tensor after applying the CBAM bottleneck.
+        """
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            x2 = self.cv2(self.cv1(x))
+            out = self.channel_attention(x2) * x2
+            out = self.spatial_attention(out) * out
+            return x + out if self.add else out
+
+class Involution(nn.Module):
+
+    def __init__(self, c1, c2, kernel_size, stride):
+        """
+        Initialize the Involution module.
+        Args:
+            c1 (int): Number of input channels.
+            c2 (int): Number of output channels.
+            kernel_size (int): Size of the involution kernel.
+            stride (int): Stride for the involution operation.
+        """
+        super().__init__()
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.c1 = c1
+        reduction_ratio = 1
+        self.group_channels = 16
+        self.groups = self.c1 // self.group_channels
+        self.conv1 = Conv(c1, c1 // reduction_ratio, 1)
+        self.conv2 = Conv(c1 // reduction_ratio, kernel_size ** 2 * self.groups, 1, 1)
+
+        if stride > 1:
+            self.avgpool = nn.AvgPool2d(stride, stride)
+        self.unfold = nn.Unfold(kernel_size, 1, (kernel_size - 1) // 2, stride)
+
+    def forward(self, x):
+        """
+        Forward pass of the Involution module.
+        Args:
+            x (torch.Tensor): Input tensor.
+        Returns:
+            out (torch.Tensor): Output tensor after applying the involution operation.
+        """
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            weight = self.conv2(x)
+            b, c, h, w = weight.shape
+            weight = weight.view(b, self.groups, self.kernel_size ** 2, h, w).unsqueeze(2)
+            out = self.unfold(x).view(b, self.groups, self.group_channels, self.kernel_size ** 2, h, w)
+            out = (weight * out).sum(dim=3).view(b, self.c1, h, w)
+
+            return out
+
+class SEBlock(nn.Module):
+    def __init__(self, in_channels, reduction=16):
+        super(SEBlock, self).__init__()
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.fc = nn.Sequential(
+            nn.Linear(in_channels, in_channels // reduction, bias=False),
+            nn.ReLU(inplace=True),
+            nn.Linear(in_channels // reduction, in_channels, bias=False),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        b, c, _, _ = x.size()
+        y = self.avg_pool(x).view(b, c)
+        y = self.fc(y).view(b, c, 1, 1)
+        return x * y.expand_as(x)
