@@ -48,6 +48,10 @@ from models.common import (
     GhostBottleneck,
     GhostConv,
     Proto,
+    ODConv_3rd,
+    ConvNextBlock,
+    ECAC3,
+    HSPP
 )
 from models.experimental import MixConv2d
 from utils.autoanchor import check_anchor_order
