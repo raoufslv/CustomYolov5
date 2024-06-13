@@ -1481,7 +1481,6 @@ class SELayer(nn.Module):
         y = self.fc1(y).view(b, c, 1, 1)
         return x * y
 
-# 使用SENet模块的残差机制
 
 
 class SENetBottleneck(nn.Module):
@@ -1502,8 +1501,6 @@ class SENetBottleneck(nn.Module):
         # return x + self.cv2(self.cv1(x)) if self.add else self.cv2(self.cv1(x))
 
 
-# 新的C3模块，使用带有SENet的Bottleneck模块
-# 这是错误的改动
 class SENetC3(nn.Module):
     # CSP Bottleneck with 3 convolutions
     # ch_in, ch_out, number, shortcut, groups, expansion
@@ -1519,9 +1516,6 @@ class SENetC3(nn.Module):
 
     def forward(self, x):
         return self.cv3(torch.cat((self.m(self.cv1(x)), self.cv2(x)), dim=1))
-
-# 将SEnet模块加载了csp模块的后面而不是残差模块上
-# 正确的改动
 
 
 class SENetC3_2(nn.Module):
@@ -1540,10 +1534,6 @@ class SENetC3_2(nn.Module):
 
     def forward(self, x):
         return self.senet(self.cv3(torch.cat((self.m(self.cv1(x)), self.cv2(x)), dim=1)))
-
-#############################################
-# CBAM模块
-#############################################
 
 
 class ChannelAttention(nn.Module):
