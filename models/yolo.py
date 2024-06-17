@@ -25,35 +25,7 @@ if str(ROOT) not in sys.path:
 if platform.system() != "Windows":
     ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
-from models.common import (
-    C3,
-    C3SPP,
-    C3TR,
-    SPP,
-    SPPF,
-    Bottleneck,
-    BottleneckCSP,
-    C3Ghost,
-    C3x,
-    Classify,
-    Concat,
-    Contract,
-    Conv,
-    CrossConv,
-    DetectMultiBackend,
-    DWConv,
-    DWConvTranspose2d,
-    Expand,
-    Focus,
-    GhostBottleneck,
-    GhostConv,
-    Proto,
-    ODConv_3rd,
-    ConvNextBlock,
-    ECAC3,
-    HSPP,
-    CBAM
-)
+from models.common import *  # import common modules
 from models.experimental import MixConv2d
 from utils.autoanchor import check_anchor_order
 from utils.general import LOGGER, check_version, check_yaml, colorstr, make_divisible, print_args
@@ -440,6 +412,8 @@ def parse_model(d, ch):
             c2 = ch[f] * args[0] ** 2
         elif m is Expand:
             c2 = ch[f] // args[0] ** 2
+        elif m is Efficient1 or m is Efficient2 or m is Efficient3:
+            c2 = ch[f] * args[0] ** 2
         else:
             c2 = ch[f]
 

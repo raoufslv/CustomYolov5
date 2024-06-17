@@ -1792,3 +1792,33 @@ class SEBlock(nn.Module):
         y = self.avg_pool(x).view(b, c)
         y = self.fc(y).view(b, c, 1, 1)
         return x * y.expand_as(x)
+
+class Efficient1(nn.Module):
+    def __init__(self, ignore) -> None:
+        super().__init__()
+        model = models.efficientnet_b0()
+        modules = list(model.children())
+        modules = modules[0][:4]
+        self.model = nn.Sequential(*modules)
+    def forward(self, x):
+        return self.model(x)
+    
+class Efficient2(nn.Module):
+    def __init__(self, ignore) -> None:
+        super().__init__()
+        model = models.efficientnet_b0()
+        modules = list(model.children())
+        modules = modules[0][4:6]
+        self.model = nn.Sequential(*modules)
+    def forward(self, x):
+        return self.model(x)
+    
+class Efficient3(nn.Module):
+    def __init__(self, ignore) -> None:
+        super().__init__()
+        model = models.efficientnet_b0()
+        modules = list(model.children())
+        modules = modules[0][6:]
+        self.model = nn.Sequential(*modules)
+    def forward(self, x):
+        return self.model(x)
